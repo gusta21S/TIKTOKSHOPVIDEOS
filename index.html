@@ -306,8 +306,16 @@
 
     <footer>
         <p>Desenvolvido para Gestão de Conteúdo</p>
-        <div id="adminLinkContainer" style="display:none;">
+        
+        <!-- Controles do Admin -->
+        <div id="adminControls" style="display:none;">
             <p class="share-link" onclick="copyBossLink()">🔗 Copiar Link para o Chefe</p>
+            <p class="share-link" onclick="exitAdminMode()" style="color: var(--tiktok-pink); margin-top: 15px;">🔓 Sair do Modo Criador</p>
+        </div>
+
+        <!-- Controles do Visitante/Chefe -->
+        <div id="loginControls" style="display:none;">
+             <p class="share-link" onclick="enterAdminMode()" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 20px;">🔐 Acessar Painel do Criador</p>
         </div>
     </footer>
 
@@ -321,7 +329,8 @@
             year: 2025,
             month: 0, // Janeiro (0-indexado)
             paymentDay: 23,
-            storageKey: 'tiktok_shop_jan2025_data'
+            storageKey: 'tiktok_shop_jan2025_data',
+            adminPassword: 'S10!2222!' // Senha definida
         };
 
         // Estado da aplicação
@@ -502,10 +511,6 @@
             saveData();
             calculateAndUpdateTotals();
             renderDays(); // Re-render para atualizar os dots de status visualmente se necessário
-            
-            // Focar de volta no elemento pode ser complicado ao re-renderizar tudo, 
-            // mas como é uma lista simples, o onchange funciona bem.
-            // Para melhor UX, em uma app real, atualizaríamos apenas o DOM específico.
         }
 
         function saveData() {
@@ -521,15 +526,19 @@
 
         function setupUI() {
             const badge = document.getElementById('modeBadge');
-            const adminLink = document.getElementById('adminLinkContainer');
+            const adminControls = document.getElementById('adminControls');
+            const loginControls = document.getElementById('loginControls');
 
             if (isAdmin) {
                 badge.innerText = 'Modo Criador (Admin)';
                 badge.className = 'badge badge-admin';
-                adminLink.style.display = 'block';
+                adminControls.style.display = 'block';
+                loginControls.style.display = 'none';
             } else {
                 badge.innerText = 'Modo Chefe (Visualização)';
                 badge.className = 'badge badge-view';
+                adminControls.style.display = 'none';
+                loginControls.style.display = 'block';
             }
         }
 
@@ -537,11 +546,31 @@
             return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
 
+        function enterAdminMode() {
+            const password = prompt("🔒 Digite a senha de administrador:");
+            
+            if (password === CONFIG.adminPassword) {
+                // Senha correta, entra no modo admin
+                const url = new URL(window.location.href);
+                url.searchParams.set('admin', 'true');
+                window.location.href = url.toString();
+            } else if (password !== null) {
+                // Senha errada (se não cancelou)
+                alert("⛔ Senha incorreta! Tente novamente.");
+            }
+        }
+
+        function exitAdminMode() {
+            // Remove ?admin=true e recarrega
+            const url = window.location.href.split('?')[0];
+            window.location.href = url;
+        }
+
         function copyBossLink() {
-            // Pega a URL atual, remove parâmetros e copia
+            // Pega a URL limpa (sem parâmetros)
             const url = window.location.href.split('?')[0];
             navigator.clipboard.writeText(url).then(() => {
-                alert('Link para o Chefe copiado! Envie este link sem o "?admin=true".');
+                alert('✅ Link de visualização copiado! Envie para o chefe.');
             });
         }
 
