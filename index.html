@@ -9,6 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         :root {
@@ -73,6 +76,7 @@
         
         .badge-admin { background: rgba(37, 244, 238, 0.2); color: var(--tiktok-cyan); border: 1px solid var(--tiktok-cyan); }
         .badge-view { background: rgba(254, 44, 85, 0.2); color: var(--tiktok-pink); border: 1px solid var(--tiktok-pink); }
+        .badge-loading { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid #444; }
 
         /* --- Dashboard Grid --- */
         .dashboard-grid {
@@ -214,6 +218,18 @@
         input[type="number"]:focus {
             border-color: var(--tiktok-cyan);
         }
+        
+        /* Spinner */
+        .spinner {
+            border: 2px solid rgba(255,255,255,0.1);
+            border-left-color: var(--tiktok-cyan);
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* Controls */
         .btn-icon {
@@ -283,6 +299,9 @@
             display: inline-block;
         }
         .status-dot.active { background-color: var(--tiktok-cyan); box-shadow: 0 0 5px var(--tiktok-cyan); }
+        .status-dot.saving { background-color: var(--warning); animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
         /* --- Footer --- */
         footer {
@@ -307,13 +326,25 @@
             .dashboard-grid { grid-template-columns: 1fr 1fr; }
             .day-row { padding: 12px 15px; }
         }
+        
+        #connectionStatus {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 0.7rem;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.8);
+            color: #666;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
     <header>
         <h1>TikTok Shop <span>Painel Criativo</span></h1>
-        <div id="modeBadge" class="badge">Carregando...</div>
+        <div id="modeBadge" class="badge badge-loading">Conectando...</div>
     </header>
 
     <!-- Cards Superiores -->
@@ -321,7 +352,7 @@
         <div class="card">
             <h3>Vídeos Feitos</h3>
             <div class="value"><span id="totalVideos">0</span> / <span id="targetVideos">0</span></div>
-            <div class="sub-value" id="videosStatus">Aguardando dados</div>
+            <div class="sub-value" id="videosStatus">Carregando...</div>
         </div>
 
         <div class="card">
@@ -356,7 +387,7 @@
 
     <!-- Lista de Dias -->
     <div class="days-container" id="daysList">
-        <!-- JS vai preencher aqui -->
+        <div style="padding: 20px; text-align: center; color: #666;">Carregando dados do servidor...</div>
     </div>
 
     <!-- Botão de Adicionar (Apenas Admin) -->
@@ -372,13 +403,13 @@
     </div>
 
     <footer>
-        <p>Desenvolvido para Gestão de Conteúdo</p>
+        <p>Sincronizado via Supabase ⚡</p>
         
         <!-- Controles do Admin -->
         <div id="adminControls" style="display:none;">
             <p class="share-link" onclick="copyBossLink()">🔗 Copiar Link para o Chefe</p>
             <p class="share-link" onclick="exitAdminMode()" style="color: var(--tiktok-pink); margin-top: 15px;">🔓 Sair do Modo Criador</p>
-            <p style="margin-top:15px; font-size:0.75rem; color:#444;">*Remova dias de folga/feriados para ajustar a meta automaticamente.</p>
+            <p style="margin-top:15px; font-size:0.75rem; color:#444;">*As alterações atualizam automaticamente a tela do chefe.</p>
         </div>
 
         <!-- Controles do Visitante/Chefe -->
@@ -386,6 +417,8 @@
              <p class="share-link" onclick="enterAdminMode()" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 20px;">🔐 Acessar Painel do Criador</p>
         </div>
     </footer>
+    
+    <div id="connectionStatus">🟡 Iniciando...</div>
 
     <script>
         /**
@@ -396,15 +429,20 @@
             videosPerDay: 3,
             cycleStart: new Date(2025, 0, 23), // 23 de Janeiro de 2025
             cycleEnd: new Date(2025, 1, 22),   // 22 de Fevereiro de 2025
-            storageKey: 'tiktok_shop_cycle_v2', // Nova chave para nova estrutura
-            adminPassword: 'S10!2222!'
+            adminPassword: 'S10!2222!',
+            supabaseUrl: 'https://jxgxkxdosloetebucome.supabase.co',
+            supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4Z3hreGRvc2xvZXRlYnVjb21lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NDI4MDAsImV4cCI6MjA4NTMxODgwMH0.mHgdTbYVxoCe9T8AL2TgBo8Pv9Sqki0wGEA-gkLoS5M'
         };
 
+        // Inicializa cliente Supabase
+        // Alterado para 'supabaseClient' para evitar conflito com a global 'window.supabase'
+        const supabaseClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+
         // Estado da aplicação
-        // Agora armazena "activeDays" (lista de datas válidas) separadamente dos valores
         let appState = {
-            activeDays: [], // Array de strings YYYY-MM-DD
-            dailyData: {},  // Objeto { "YYYY-MM-DD": valor }
+            // No modelo DB, activeDays e dailyData são derivados da tabela tiktok_production
+            // Formato tabela: { date: 'YYYY-MM-DD', count: 5 }
+            data: [] 
         };
 
         // Determina se é Admin ou Chefe baseado na URL
@@ -414,59 +452,174 @@
         /**
          * INICIALIZAÇÃO
          */
-        function init() {
-            loadData();
+        async function init() {
+            setupUI();
             
-            // Se não houver dados salvos (primeira vez), gera o ciclo padrão
-            if (appState.activeDays.length === 0) {
-                generateDefaultCycle();
+            // 1. Carregar dados iniciais
+            await fetchFromSupabase();
+
+            // 2. Se tabela vazia, gerar padrão
+            if (appState.data.length === 0 && isAdmin) {
+                await generateDefaultCycle();
             }
 
-            setupUI();
+            // 3. Renderizar
             renderDays();
             calculateAndUpdateTotals();
+
+            // 4. Ativar Realtime Listener
+            setupRealtime();
         }
 
         /**
-         * GERAÇÃO DE DATAS PADRÃO (23 Jan a 22 Fev)
+         * SUPABASE & DADOS
          */
-        function generateDefaultCycle() {
+        async function fetchFromSupabase() {
+            updateStatus('🟡 Buscando dados...');
+            const { data, error } = await supabaseClient
+                .from('tiktok_production')
+                .select('*')
+                .order('date', { ascending: true });
+
+            if (error) {
+                console.error('Erro ao buscar:', error);
+                updateStatus('🔴 Erro de Conexão');
+                // Se der erro de "relation does not exist", avisa o usuário
+                if(error.code === '42P01') {
+                    alert("A tabela 'tiktok_production' não existe. Por favor, crie-a no Supabase SQL Editor.");
+                }
+                return;
+            }
+
+            appState.data = data || [];
+            updateStatus('🟢 Conectado');
+        }
+
+        function setupRealtime() {
+            supabaseClient.channel('public:tiktok_production')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tiktok_production' }, payload => {
+                    console.log('Change received!', payload);
+                    // Atualização simples: recarrega tudo para garantir consistência
+                    // Em app grande faríamos atualização otimista, aqui fetch é rápido
+                    fetchFromSupabase().then(() => {
+                        renderDays();
+                        calculateAndUpdateTotals();
+                    });
+                })
+                .subscribe();
+        }
+
+        async function generateDefaultCycle() {
+            updateStatus('⚙️ Gerando ciclo...');
             const date = new Date(CONFIG.cycleStart);
             const endDate = new Date(CONFIG.cycleEnd);
-            const days = [];
+            const rowsToInsert = [];
             
             while (date <= endDate) {
                 const dayOfWeek = date.getDay(); // 0 = Domingo
-                
-                // Regra padrão: Domingo não conta
                 if (dayOfWeek !== 0) {
-                    days.push(date.toISOString().split('T')[0]);
+                    rowsToInsert.push({
+                        date: date.toISOString().split('T')[0],
+                        count: 0
+                    });
                 }
                 date.setDate(date.getDate() + 1);
             }
-            appState.activeDays = days;
-            saveData();
+            
+            const { error } = await supabaseClient.from('tiktok_production').insert(rowsToInsert);
+            if (error) console.error("Erro ao gerar ciclo:", error);
+            else await fetchFromSupabase();
+        }
+
+        /**
+         * AÇÕES DE DADOS (ADMIN)
+         */
+        async function updateDayData(dateKey, value) {
+            const numValue = parseInt(value) || 0;
+            
+            // Feedback visual imediato (Optimistic UI)
+            const row = appState.data.find(r => r.date === dateKey);
+            if(row) row.count = numValue;
+            calculateAndUpdateTotals(); // Recalcula totais visualmente
+            
+            const dot = document.getElementById(`status-dot-${dateKey}`);
+            if(dot) { dot.className = "status-dot saving"; }
+
+            // Salva no DB
+            const { error } = await supabaseClient
+                .from('tiktok_production')
+                .upsert({ date: dateKey, count: numValue })
+                .select();
+
+            if (error) {
+                alert('Erro ao salvar!');
+                console.error(error);
+            } else {
+                if(dot) { 
+                    dot.className = numValue > 0 ? "status-dot active" : "status-dot"; 
+                }
+            }
+        }
+
+        async function removeDay(dateKey) {
+            if(confirm(`Remover dia ${dateKey}?`)) {
+                // Optimistic UI update
+                appState.data = appState.data.filter(r => r.date !== dateKey);
+                renderDays();
+                calculateAndUpdateTotals();
+
+                const { error } = await supabaseClient
+                    .from('tiktok_production')
+                    .delete()
+                    .eq('date', dateKey);
+
+                if(error) {
+                    alert("Erro ao deletar dia.");
+                    await fetchFromSupabase(); // Reverte se erro
+                }
+            }
+        }
+
+        async function confirmAddDay() {
+            const input = document.getElementById('newDateInput');
+            const dateKey = input.value;
+            
+            if (!dateKey) return;
+            if (appState.data.find(r => r.date === dateKey)) {
+                alert('Este dia já está na lista!');
+                return;
+            }
+
+            updateStatus('Salvando...');
+            const { error } = await supabaseClient
+                .from('tiktok_production')
+                .insert({ date: dateKey, count: 0 });
+
+            if (error) {
+                alert("Erro ao adicionar dia: " + error.message);
+            } else {
+                // Realtime vai pegar a mudança, mas forçamos fetch para UI rapida
+                await fetchFromSupabase();
+                renderDays();
+                calculateAndUpdateTotals();
+                cancelAddDay();
+            }
+            updateStatus('🟢 Conectado');
         }
 
         /**
          * LÓGICA DE CÁLCULO
          */
         function calculateAndUpdateTotals() {
-            // A meta agora é baseada na quantidade de dias ATIVOS na lista
-            const totalWorkingDays = appState.activeDays.length;
+            const totalWorkingDays = appState.data.length;
             const monthlyTarget = totalWorkingDays * CONFIG.videosPerDay;
-            
-            // Valor unitário por vídeo (Baseado na regra: 750 / meta dinâmica)
-            // Se a meta for 0 (apagou todos os dias), evita divisão por zero
             const pricePerVideo = monthlyTarget > 0 ? (CONFIG.baseSalary / monthlyTarget) : 0;
 
-            // Somar vídeos feitos APENAS dos dias ativos
             let totalVideosMade = 0;
-            appState.activeDays.forEach(dateKey => {
-                totalVideosMade += parseInt(appState.dailyData[dateKey] || 0);
+            appState.data.forEach(row => {
+                totalVideosMade += (row.count || 0);
             });
 
-            // Cálculos financeiros
             let baseEarnings = 0;
             let extraEarnings = 0;
 
@@ -479,12 +632,11 @@
                 extraEarnings = extraVideos * pricePerVideo;
             }
 
-            // Atualizar UI
             updateDashboardUI(totalVideosMade, monthlyTarget, baseEarnings, extraEarnings);
         }
 
         /**
-         * ATUALIZAÇÃO DA INTERFACE
+         * INTERFACE
          */
         function updateDashboardUI(totalVideos, target, baseVal, extraVal) {
             document.getElementById('totalVideos').innerText = totalVideos;
@@ -493,7 +645,7 @@
             const remaining = target - totalVideos;
             const statusEl = document.getElementById('videosStatus');
             if (remaining > 0) {
-                statusEl.innerText = `${remaining} restantes para a meta`;
+                statusEl.innerText = `${remaining} restantes`;
                 statusEl.style.color = 'var(--text-muted)';
             } else {
                 statusEl.innerText = `Meta batida! 🔥`;
@@ -514,30 +666,31 @@
             else pBar.style.background = 'linear-gradient(90deg, var(--tiktok-cyan), var(--tiktok-pink))';
         }
 
-        /**
-         * RENDERIZAÇÃO DA LISTA
-         */
         function renderDays() {
             const container = document.getElementById('daysList');
             container.innerHTML = '';
             
-            // Ordenar dias
-            const sortedDays = [...appState.activeDays].sort();
+            // Ordena localmente para garantir exibição correta
+            const sortedData = [...appState.data].sort((a, b) => a.date.localeCompare(b.date));
             const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-            sortedDays.forEach(dateKey => {
-                // dateKey é string "YYYY-MM-DD", precisamos criar objeto Date corrigindo fuso horário
+            if(sortedData.length === 0) {
+                container.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">Nenhum dia no ciclo.</div>';
+                return;
+            }
+
+            sortedData.forEach(row => {
+                const dateKey = row.date;
                 const parts = dateKey.split('-');
-                const dateObj = new Date(parts[0], parts[1]-1, parts[2]);
+                const dateObj = new Date(parts[0], parts[1]-1, parts[2]); // UTC handling simple hack
                 
                 const dayNum = dateObj.getDate().toString().padStart(2, '0');
                 const monthNum = (dateObj.getMonth() + 1).toString().padStart(2, '0');
                 const weekDay = daysOfWeek[dateObj.getDay()];
+                const currentVal = row.count || 0;
                 
-                const currentVal = appState.dailyData[dateKey] || 0;
-                
-                const row = document.createElement('div');
-                row.className = 'day-row';
+                const divRow = document.createElement('div');
+                divRow.className = 'day-row';
 
                 let inputHtml = '';
                 if (isAdmin) {
@@ -548,7 +701,8 @@
                                    value="${currentVal}" 
                                    onchange="updateDayData('${dateKey}', this.value)"
                                    placeholder="0">
-                            <button class="btn-icon btn-delete" onclick="removeDay('${dateKey}')" title="Remover dia do ciclo">🗑️</button>
+                            <div id="status-dot-${dateKey}" class="status-dot ${currentVal > 0 ? 'active' : ''}"></div>
+                            <button class="btn-icon btn-delete" onclick="removeDay('${dateKey}')" title="Remover dia">🗑️</button>
                         </div>
                     `;
                 } else {
@@ -560,7 +714,7 @@
                     `;
                 }
 
-                row.innerHTML = `
+                divRow.innerHTML = `
                     <div class="day-info">
                         <span class="day-date">${dayNum}/${monthNum}</span>
                         <span class="day-weekday">${weekDay}</span>
@@ -568,81 +722,28 @@
                     ${inputHtml}
                 `;
                 
-                container.appendChild(row);
+                container.appendChild(divRow);
             });
         }
 
-        /**
-         * GERENCIAMENTO DE DIAS (ADD/REMOVE)
-         */
-        function removeDay(dateKey) {
-            if(confirm(`Remover dia ${dateKey} do ciclo? Isso diminuirá a meta mensal.`)) {
-                appState.activeDays = appState.activeDays.filter(d => d !== dateKey);
-                // Não deletamos o dailyData para manter histórico caso readicione, ou podemos deletar.
-                // Optei por manter para segurança.
-                saveData();
-                renderDays();
-                calculateAndUpdateTotals();
-            }
+        /* UTILS */
+        function updateStatus(msg) {
+            document.getElementById('connectionStatus').innerText = msg;
+        }
+
+        function formatCurrency(value) {
+            return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
 
         function showAddDateInput() {
             document.getElementById('addBtnInitial').style.display = 'none';
             document.getElementById('addDateControls').style.display = 'flex';
-            // Setar data de hoje no input como padrão
             document.getElementById('newDateInput').value = new Date().toISOString().split('T')[0];
         }
 
         function cancelAddDay() {
             document.getElementById('addBtnInitial').style.display = 'flex';
             document.getElementById('addDateControls').style.display = 'none';
-        }
-
-        function confirmAddDay() {
-            const input = document.getElementById('newDateInput');
-            const dateKey = input.value;
-            
-            if (!dateKey) return;
-
-            if (appState.activeDays.includes(dateKey)) {
-                alert('Este dia já está na lista!');
-                return;
-            }
-
-            appState.activeDays.push(dateKey);
-            saveData();
-            
-            renderDays();
-            calculateAndUpdateTotals();
-            cancelAddDay();
-        }
-
-        function updateDayData(dateKey, value) {
-            const numValue = parseInt(value);
-            if (isNaN(numValue) || numValue < 0) {
-                appState.dailyData[dateKey] = 0;
-            } else {
-                appState.dailyData[dateKey] = numValue;
-            }
-            saveData();
-            calculateAndUpdateTotals();
-        }
-
-        /* --- Persistence & Auth --- */
-
-        function saveData() {
-            localStorage.setItem(CONFIG.storageKey, JSON.stringify(appState));
-        }
-
-        function loadData() {
-            const saved = localStorage.getItem(CONFIG.storageKey);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                // Migração simples se necessário (garantir estrutura)
-                if (parsed.activeDays) {
-                    appState = parsed;
-                }
-            }
         }
 
         function setupUI() {
@@ -664,10 +765,6 @@
                 addDayContainer.style.display = 'none';
                 loginControls.style.display = 'block';
             }
-        }
-
-        function formatCurrency(value) {
-            return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
 
         function enterAdminMode() {
