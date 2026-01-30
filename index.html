@@ -20,6 +20,7 @@
             --tiktok-pink: #FE2C55;
             --success: #00c853;
             --warning: #ffd600;
+            --danger: #ff4757;
         }
 
         * {
@@ -162,6 +163,7 @@
             border-radius: 16px;
             overflow: hidden;
             border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 20px;
         }
 
         .day-row {
@@ -213,6 +215,58 @@
             border-color: var(--tiktok-cyan);
         }
 
+        /* Controls */
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+            transition: 0.2s;
+            opacity: 0.7;
+        }
+        
+        .btn-icon:hover { opacity: 1; transform: scale(1.1); }
+        .btn-delete { color: var(--danger); }
+        .btn-add { 
+            background: var(--card-bg);
+            color: var(--tiktok-cyan);
+            border: 1px dashed var(--tiktok-cyan);
+            width: 100%;
+            max-width: 800px;
+            padding: 15px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-add:hover { background: rgba(37, 244, 238, 0.1); }
+
+        /* Add Date Modal/Input Area */
+        .add-date-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        input[type="date"] {
+            background: #121212;
+            border: 1px solid #444;
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            color-scheme: dark;
+        }
+
         /* Read only mode text */
         .video-count-display {
             font-size: 1.2rem;
@@ -236,6 +290,7 @@
             text-align: center;
             color: var(--text-muted);
             font-size: 0.8rem;
+            padding-bottom: 40px;
         }
 
         .share-link {
@@ -284,7 +339,7 @@
         <div class="card">
             <h3>Pagamento</h3>
             <div class="value">23/Fev</div>
-            <div class="sub-value">Ref: Janeiro 2025</div>
+            <div class="sub-value">Ciclo: 23 Jan - 22 Fev</div>
         </div>
     </div>
 
@@ -304,6 +359,18 @@
         <!-- JS vai preencher aqui -->
     </div>
 
+    <!-- Botão de Adicionar (Apenas Admin) -->
+    <div id="addDayContainer" style="display:none; width: 100%; max-width: 800px;">
+        <div id="addBtnInitial" class="btn-add" onclick="showAddDateInput()">
+            <span>➕ Adicionar Dia ao Ciclo</span>
+        </div>
+        <div id="addDateControls" class="add-date-controls" style="display:none;">
+            <input type="date" id="newDateInput">
+            <button class="badge badge-admin" style="border:none; cursor:pointer;" onclick="confirmAddDay()">Confirmar</button>
+            <button class="badge badge-view" style="border:none; cursor:pointer;" onclick="cancelAddDay()">Cancelar</button>
+        </div>
+    </div>
+
     <footer>
         <p>Desenvolvido para Gestão de Conteúdo</p>
         
@@ -311,6 +378,7 @@
         <div id="adminControls" style="display:none;">
             <p class="share-link" onclick="copyBossLink()">🔗 Copiar Link para o Chefe</p>
             <p class="share-link" onclick="exitAdminMode()" style="color: var(--tiktok-pink); margin-top: 15px;">🔓 Sair do Modo Criador</p>
+            <p style="margin-top:15px; font-size:0.75rem; color:#444;">*Remova dias de folga/feriados para ajustar a meta automaticamente.</p>
         </div>
 
         <!-- Controles do Visitante/Chefe -->
@@ -326,16 +394,17 @@
         const CONFIG = {
             baseSalary: 750.00,
             videosPerDay: 3,
-            year: 2025,
-            month: 0, // Janeiro (0-indexado)
-            paymentDay: 23,
-            storageKey: 'tiktok_shop_jan2025_data',
-            adminPassword: 'S10!2222!' // Senha definida
+            cycleStart: new Date(2025, 0, 23), // 23 de Janeiro de 2025
+            cycleEnd: new Date(2025, 1, 22),   // 22 de Fevereiro de 2025
+            storageKey: 'tiktok_shop_cycle_v2', // Nova chave para nova estrutura
+            adminPassword: 'S10!2222!'
         };
 
         // Estado da aplicação
+        // Agora armazena "activeDays" (lista de datas válidas) separadamente dos valores
         let appState = {
-            dailyData: {}, // Formato: { "2025-01-01": 5, "2025-01-02": 3 }
+            activeDays: [], // Array de strings YYYY-MM-DD
+            dailyData: {},  // Objeto { "YYYY-MM-DD": valor }
         };
 
         // Determina se é Admin ou Chefe baseado na URL
@@ -347,45 +416,54 @@
          */
         function init() {
             loadData();
+            
+            // Se não houver dados salvos (primeira vez), gera o ciclo padrão
+            if (appState.activeDays.length === 0) {
+                generateDefaultCycle();
+            }
+
             setupUI();
             renderDays();
             calculateAndUpdateTotals();
         }
 
         /**
-         * GERAÇÃO DE DATAS (Regra de Negócio)
+         * GERAÇÃO DE DATAS PADRÃO (23 Jan a 22 Fev)
          */
-        function getWorkingDaysInMonth() {
-            const date = new Date(CONFIG.year, CONFIG.month, 1);
+        function generateDefaultCycle() {
+            const date = new Date(CONFIG.cycleStart);
+            const endDate = new Date(CONFIG.cycleEnd);
             const days = [];
             
-            while (date.getMonth() === CONFIG.month) {
+            while (date <= endDate) {
                 const dayOfWeek = date.getDay(); // 0 = Domingo
                 
-                // Regra: Domingo não conta
+                // Regra padrão: Domingo não conta
                 if (dayOfWeek !== 0) {
-                    days.push(new Date(date));
+                    days.push(date.toISOString().split('T')[0]);
                 }
                 date.setDate(date.getDate() + 1);
             }
-            return days;
+            appState.activeDays = days;
+            saveData();
         }
 
         /**
          * LÓGICA DE CÁLCULO
          */
         function calculateAndUpdateTotals() {
-            const workingDays = getWorkingDaysInMonth();
-            const totalWorkingDays = workingDays.length;
+            // A meta agora é baseada na quantidade de dias ATIVOS na lista
+            const totalWorkingDays = appState.activeDays.length;
             const monthlyTarget = totalWorkingDays * CONFIG.videosPerDay;
             
-            // Valor unitário por vídeo (Baseado na regra: 750 / total do mês)
-            const pricePerVideo = CONFIG.baseSalary / monthlyTarget;
+            // Valor unitário por vídeo (Baseado na regra: 750 / meta dinâmica)
+            // Se a meta for 0 (apagou todos os dias), evita divisão por zero
+            const pricePerVideo = monthlyTarget > 0 ? (CONFIG.baseSalary / monthlyTarget) : 0;
 
-            // Somar vídeos feitos
+            // Somar vídeos feitos APENAS dos dias ativos
             let totalVideosMade = 0;
-            Object.values(appState.dailyData).forEach(count => {
-                totalVideosMade += parseInt(count || 0);
+            appState.activeDays.forEach(dateKey => {
+                totalVideosMade += parseInt(appState.dailyData[dateKey] || 0);
             });
 
             // Cálculos financeiros
@@ -393,11 +471,9 @@
             let extraEarnings = 0;
 
             if (totalVideosMade <= monthlyTarget) {
-                // Ainda não atingiu a meta, tudo é base
                 baseEarnings = totalVideosMade * pricePerVideo;
                 extraEarnings = 0;
             } else {
-                // Atingiu a meta, o teto é 750, o resto é extra
                 baseEarnings = CONFIG.baseSalary;
                 const extraVideos = totalVideosMade - monthlyTarget;
                 extraEarnings = extraVideos * pricePerVideo;
@@ -411,7 +487,6 @@
          * ATUALIZAÇÃO DA INTERFACE
          */
         function updateDashboardUI(totalVideos, target, baseVal, extraVal) {
-            // Card Vídeos
             document.getElementById('totalVideos').innerText = totalVideos;
             document.getElementById('targetVideos').innerText = target;
             
@@ -425,22 +500,18 @@
                 statusEl.style.color = 'var(--tiktok-cyan)';
             }
 
-            // Card Ganhos
             document.getElementById('currentEarnings').innerText = formatCurrency(baseVal);
             document.getElementById('extraEarnings').innerText = formatCurrency(extraVal);
 
-            // Barra de Progresso
-            let percentage = (totalVideos / target) * 100;
-            // Limitar visualmente a barra interna em 100% para não estourar layout, 
-            // mas o texto pode passar de 100%
+            let percentage = target > 0 ? (totalVideos / target) * 100 : 0;
             const visualPercentage = percentage > 100 ? 100 : percentage;
             
             document.getElementById('progressBar').style.width = `${visualPercentage}%`;
             document.getElementById('progressText').innerText = `${percentage.toFixed(1)}%`;
             
-            if(percentage >= 100) {
-                document.getElementById('progressBar').style.background = 'var(--success)';
-            }
+            const pBar = document.getElementById('progressBar');
+            if(percentage >= 100) pBar.style.background = 'var(--success)';
+            else pBar.style.background = 'linear-gradient(90deg, var(--tiktok-cyan), var(--tiktok-pink))';
         }
 
         /**
@@ -450,20 +521,24 @@
             const container = document.getElementById('daysList');
             container.innerHTML = '';
             
-            const workingDays = getWorkingDaysInMonth();
+            // Ordenar dias
+            const sortedDays = [...appState.activeDays].sort();
             const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-            workingDays.forEach(date => {
-                const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
-                const dayNum = date.getDate().toString().padStart(2, '0');
-                const weekDay = daysOfWeek[date.getDay()];
+            sortedDays.forEach(dateKey => {
+                // dateKey é string "YYYY-MM-DD", precisamos criar objeto Date corrigindo fuso horário
+                const parts = dateKey.split('-');
+                const dateObj = new Date(parts[0], parts[1]-1, parts[2]);
+                
+                const dayNum = dateObj.getDate().toString().padStart(2, '0');
+                const monthNum = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                const weekDay = daysOfWeek[dateObj.getDay()];
                 
                 const currentVal = appState.dailyData[dateKey] || 0;
                 
                 const row = document.createElement('div');
                 row.className = 'day-row';
 
-                // Lógica de visualização do input vs texto
                 let inputHtml = '';
                 if (isAdmin) {
                     inputHtml = `
@@ -473,7 +548,7 @@
                                    value="${currentVal}" 
                                    onchange="updateDayData('${dateKey}', this.value)"
                                    placeholder="0">
-                            <div class="status-dot ${currentVal > 0 ? 'active' : ''}"></div>
+                            <button class="btn-icon btn-delete" onclick="removeDay('${dateKey}')" title="Remover dia do ciclo">🗑️</button>
                         </div>
                     `;
                 } else {
@@ -487,7 +562,7 @@
 
                 row.innerHTML = `
                     <div class="day-info">
-                        <span class="day-date">${dayNum}/01</span>
+                        <span class="day-date">${dayNum}/${monthNum}</span>
                         <span class="day-weekday">${weekDay}</span>
                     </div>
                     ${inputHtml}
@@ -498,9 +573,50 @@
         }
 
         /**
-         * FUNÇÕES DO SISTEMA (Persistência e Utils)
+         * GERENCIAMENTO DE DIAS (ADD/REMOVE)
          */
-        
+        function removeDay(dateKey) {
+            if(confirm(`Remover dia ${dateKey} do ciclo? Isso diminuirá a meta mensal.`)) {
+                appState.activeDays = appState.activeDays.filter(d => d !== dateKey);
+                // Não deletamos o dailyData para manter histórico caso readicione, ou podemos deletar.
+                // Optei por manter para segurança.
+                saveData();
+                renderDays();
+                calculateAndUpdateTotals();
+            }
+        }
+
+        function showAddDateInput() {
+            document.getElementById('addBtnInitial').style.display = 'none';
+            document.getElementById('addDateControls').style.display = 'flex';
+            // Setar data de hoje no input como padrão
+            document.getElementById('newDateInput').value = new Date().toISOString().split('T')[0];
+        }
+
+        function cancelAddDay() {
+            document.getElementById('addBtnInitial').style.display = 'flex';
+            document.getElementById('addDateControls').style.display = 'none';
+        }
+
+        function confirmAddDay() {
+            const input = document.getElementById('newDateInput');
+            const dateKey = input.value;
+            
+            if (!dateKey) return;
+
+            if (appState.activeDays.includes(dateKey)) {
+                alert('Este dia já está na lista!');
+                return;
+            }
+
+            appState.activeDays.push(dateKey);
+            saveData();
+            
+            renderDays();
+            calculateAndUpdateTotals();
+            cancelAddDay();
+        }
+
         function updateDayData(dateKey, value) {
             const numValue = parseInt(value);
             if (isNaN(numValue) || numValue < 0) {
@@ -510,8 +626,9 @@
             }
             saveData();
             calculateAndUpdateTotals();
-            renderDays(); // Re-render para atualizar os dots de status visualmente se necessário
         }
+
+        /* --- Persistence & Auth --- */
 
         function saveData() {
             localStorage.setItem(CONFIG.storageKey, JSON.stringify(appState));
@@ -520,7 +637,11 @@
         function loadData() {
             const saved = localStorage.getItem(CONFIG.storageKey);
             if (saved) {
-                appState = JSON.parse(saved);
+                const parsed = JSON.parse(saved);
+                // Migração simples se necessário (garantir estrutura)
+                if (parsed.activeDays) {
+                    appState = parsed;
+                }
             }
         }
 
@@ -528,16 +649,19 @@
             const badge = document.getElementById('modeBadge');
             const adminControls = document.getElementById('adminControls');
             const loginControls = document.getElementById('loginControls');
+            const addDayContainer = document.getElementById('addDayContainer');
 
             if (isAdmin) {
                 badge.innerText = 'Modo Criador (Admin)';
                 badge.className = 'badge badge-admin';
                 adminControls.style.display = 'block';
+                addDayContainer.style.display = 'block';
                 loginControls.style.display = 'none';
             } else {
                 badge.innerText = 'Modo Chefe (Visualização)';
                 badge.className = 'badge badge-view';
                 adminControls.style.display = 'none';
+                addDayContainer.style.display = 'none';
                 loginControls.style.display = 'block';
             }
         }
@@ -548,29 +672,24 @@
 
         function enterAdminMode() {
             const password = prompt("🔒 Digite a senha de administrador:");
-            
             if (password === CONFIG.adminPassword) {
-                // Senha correta, entra no modo admin
                 const url = new URL(window.location.href);
                 url.searchParams.set('admin', 'true');
                 window.location.href = url.toString();
             } else if (password !== null) {
-                // Senha errada (se não cancelou)
-                alert("⛔ Senha incorreta! Tente novamente.");
+                alert("⛔ Senha incorreta!");
             }
         }
 
         function exitAdminMode() {
-            // Remove ?admin=true e recarrega
             const url = window.location.href.split('?')[0];
             window.location.href = url;
         }
 
         function copyBossLink() {
-            // Pega a URL limpa (sem parâmetros)
             const url = window.location.href.split('?')[0];
             navigator.clipboard.writeText(url).then(() => {
-                alert('✅ Link de visualização copiado! Envie para o chefe.');
+                alert('✅ Link de visualização copiado!');
             });
         }
 
