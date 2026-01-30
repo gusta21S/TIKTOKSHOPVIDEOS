@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Shop - Painel Criativo</title>
+    
+    <!-- Fontes Modernas -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --tiktok-cyan: #25F4EE;
+            --tiktok-pink: #FE2C55;
+            --success: #00c853;
+            --warning: #ffd600;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* --- Header & Layout --- */
+        header {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        h1 {
+            font-weight: 800;
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+            margin-bottom: 5px;
+        }
+
+        h1 span {
+            color: var(--tiktok-cyan);
+            text-shadow: 2px 2px 0px var(--tiktok-pink);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        
+        .badge-admin { background: rgba(37, 244, 238, 0.2); color: var(--tiktok-cyan); border: 1px solid var(--tiktok-cyan); }
+        .badge-view { background: rgba(254, 44, 85, 0.2); color: var(--tiktok-pink); border: 1px solid var(--tiktok-pink); }
+
+        /* --- Dashboard Grid --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card h3 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .card .value {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .card .sub-value {
+            font-size: 0.8rem;
+            color: var(--tiktok-cyan);
+            margin-top: 5px;
+        }
+
+        .highlight-cyan { color: var(--tiktok-cyan); }
+        .highlight-pink { color: var(--tiktok-pink); }
+
+        /* --- Progress Bar --- */
+        .progress-container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--tiktok-cyan), var(--tiktok-pink));
+            width: 0%;
+            transition: width 0.5s ease-in-out;
+            box-shadow: 0 0 10px rgba(37, 244, 238, 0.5);
+        }
+
+        /* --- List of Days --- */
+        .days-container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .day-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .day-row:last-child { border-bottom: none; }
+        
+        .day-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .day-date {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .day-weekday {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .day-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Input styling */
+        input[type="number"] {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            width: 60px;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: bold;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--tiktok-cyan);
+        }
+
+        /* Read only mode text */
+        .video-count-display {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-right: 10px;
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            background-color: #444;
+            display: inline-block;
+        }
+        .status-dot.active { background-color: var(--tiktok-cyan); box-shadow: 0 0 5px var(--tiktok-cyan); }
+
+        /* --- Footer --- */
+        footer {
+            margin-top: 40px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .share-link {
+            margin-top: 10px;
+            color: var(--tiktok-cyan);
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        /* Mobile adjustments */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; }
+            .dashboard-grid { grid-template-columns: 1fr 1fr; }
+            .day-row { padding: 12px 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>TikTok Shop <span>Painel Criativo</span></h1>
+        <div id="modeBadge" class="badge">Carregando...</div>
+    </header>
+
+    <!-- Cards Superiores -->
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3>Vídeos Feitos</h3>
+            <div class="value"><span id="totalVideos">0</span> / <span id="targetVideos">0</span></div>
+            <div class="sub-value" id="videosStatus">Aguardando dados</div>
+        </div>
+
+        <div class="card">
+            <h3>Ganhos Atuais</h3>
+            <div class="value highlight-cyan" id="currentEarnings">R$ 0,00</div>
+            <div class="sub-value">Salário Base: R$ 750,00</div>
+        </div>
+
+        <div class="card">
+            <h3>Bônus/Extra</h3>
+            <div class="value highlight-pink" id="extraEarnings">R$ 0,00</div>
+            <div class="sub-value">Acima da meta</div>
+        </div>
+
+        <div class="card">
+            <h3>Pagamento</h3>
+            <div class="value">23/Fev</div>
+            <div class="sub-value">Ref: Janeiro 2025</div>
+        </div>
+    </div>
+
+    <!-- Barra de Progresso -->
+    <div class="progress-container">
+        <div class="progress-label">
+            <span>Progresso da Meta Mensal</span>
+            <span id="progressText">0%</span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+    </div>
+
+    <!-- Lista de Dias -->
+    <div class="days-container" id="daysList">
+        <!-- JS vai preencher aqui -->
+    </div>
+
+    <footer>
+        <p>Desenvolvido para Gestão de Conteúdo</p>
+        <div id="adminLinkContainer" style="display:none;">
+            <p class="share-link" onclick="copyBossLink()">🔗 Copiar Link para o Chefe</p>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * CONFIGURAÇÃO E DADOS FIXOS
+         */
+        const CONFIG = {
+            baseSalary: 750.00,
+            videosPerDay: 3,
+            year: 2025,
+            month: 0, // Janeiro (0-indexado)
+            paymentDay: 23,
+            storageKey: 'tiktok_shop_jan2025_data'
+        };
+
+        // Estado da aplicação
+        let appState = {
+            dailyData: {}, // Formato: { "2025-01-01": 5, "2025-01-02": 3 }
+        };
+
+        // Determina se é Admin ou Chefe baseado na URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const isAdmin = urlParams.get('admin') === 'true';
+
+        /**
+         * INICIALIZAÇÃO
+         */
+        function init() {
+            loadData();
+            setupUI();
+            renderDays();
+            calculateAndUpdateTotals();
+        }
+
+        /**
+         * GERAÇÃO DE DATAS (Regra de Negócio)
+         */
+        function getWorkingDaysInMonth() {
+            const date = new Date(CONFIG.year, CONFIG.month, 1);
+            const days = [];
+            
+            while (date.getMonth() === CONFIG.month) {
+                const dayOfWeek = date.getDay(); // 0 = Domingo
+                
+                // Regra: Domingo não conta
+                if (dayOfWeek !== 0) {
+                    days.push(new Date(date));
+                }
+                date.setDate(date.getDate() + 1);
+            }
+            return days;
+        }
+
+        /**
+         * LÓGICA DE CÁLCULO
+         */
+        function calculateAndUpdateTotals() {
+            const workingDays = getWorkingDaysInMonth();
+            const totalWorkingDays = workingDays.length;
+            const monthlyTarget = totalWorkingDays * CONFIG.videosPerDay;
+            
+            // Valor unitário por vídeo (Baseado na regra: 750 / total do mês)
+            const pricePerVideo = CONFIG.baseSalary / monthlyTarget;
+
+            // Somar vídeos feitos
+            let totalVideosMade = 0;
+            Object.values(appState.dailyData).forEach(count => {
+                totalVideosMade += parseInt(count || 0);
+            });
+
+            // Cálculos financeiros
+            let baseEarnings = 0;
+            let extraEarnings = 0;
+
+            if (totalVideosMade <= monthlyTarget) {
+                // Ainda não atingiu a meta, tudo é base
+                baseEarnings = totalVideosMade * pricePerVideo;
+                extraEarnings = 0;
+            } else {
+                // Atingiu a meta, o teto é 750, o resto é extra
+                baseEarnings = CONFIG.baseSalary;
+                const extraVideos = totalVideosMade - monthlyTarget;
+                extraEarnings = extraVideos * pricePerVideo;
+            }
+
+            // Atualizar UI
+            updateDashboardUI(totalVideosMade, monthlyTarget, baseEarnings, extraEarnings);
+        }
+
+        /**
+         * ATUALIZAÇÃO DA INTERFACE
+         */
+        function updateDashboardUI(totalVideos, target, baseVal, extraVal) {
+            // Card Vídeos
+            document.getElementById('totalVideos').innerText = totalVideos;
+            document.getElementById('targetVideos').innerText = target;
+            
+            const remaining = target - totalVideos;
+            const statusEl = document.getElementById('videosStatus');
+            if (remaining > 0) {
+                statusEl.innerText = `${remaining} restantes para a meta`;
+                statusEl.style.color = 'var(--text-muted)';
+            } else {
+                statusEl.innerText = `Meta batida! 🔥`;
+                statusEl.style.color = 'var(--tiktok-cyan)';
+            }
+
+            // Card Ganhos
+            document.getElementById('currentEarnings').innerText = formatCurrency(baseVal);
+            document.getElementById('extraEarnings').innerText = formatCurrency(extraVal);
+
+            // Barra de Progresso
+            let percentage = (totalVideos / target) * 100;
+            // Limitar visualmente a barra interna em 100% para não estourar layout, 
+            // mas o texto pode passar de 100%
+            const visualPercentage = percentage > 100 ? 100 : percentage;
+            
+            document.getElementById('progressBar').style.width = `${visualPercentage}%`;
+            document.getElementById('progressText').innerText = `${percentage.toFixed(1)}%`;
+            
+            if(percentage >= 100) {
+                document.getElementById('progressBar').style.background = 'var(--success)';
+            }
+        }
+
+        /**
+         * RENDERIZAÇÃO DA LISTA
+         */
+        function renderDays() {
+            const container = document.getElementById('daysList');
+            container.innerHTML = '';
+            
+            const workingDays = getWorkingDaysInMonth();
+            const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+            workingDays.forEach(date => {
+                const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+                const dayNum = date.getDate().toString().padStart(2, '0');
+                const weekDay = daysOfWeek[date.getDay()];
+                
+                const currentVal = appState.dailyData[dateKey] || 0;
+                
+                const row = document.createElement('div');
+                row.className = 'day-row';
+
+                // Lógica de visualização do input vs texto
+                let inputHtml = '';
+                if (isAdmin) {
+                    inputHtml = `
+                        <div class="day-input-group">
+                            <input type="number" 
+                                   min="0" 
+                                   value="${currentVal}" 
+                                   onchange="updateDayData('${dateKey}', this.value)"
+                                   placeholder="0">
+                            <div class="status-dot ${currentVal > 0 ? 'active' : ''}"></div>
+                        </div>
+                    `;
+                } else {
+                    inputHtml = `
+                        <div class="day-input-group">
+                            <span class="video-count-display">${currentVal}</span>
+                            <span style="font-size:0.8rem; color:#666;">vídeos</span>
+                        </div>
+                    `;
+                }
+
+                row.innerHTML = `
+                    <div class="day-info">
+                        <span class="day-date">${dayNum}/01</span>
+                        <span class="day-weekday">${weekDay}</span>
+                    </div>
+                    ${inputHtml}
+                `;
+                
+                container.appendChild(row);
+            });
+        }
+
+        /**
+         * FUNÇÕES DO SISTEMA (Persistência e Utils)
+         */
+        
+        function updateDayData(dateKey, value) {
+            const numValue = parseInt(value);
+            if (isNaN(numValue) || numValue < 0) {
+                appState.dailyData[dateKey] = 0;
+            } else {
+                appState.dailyData[dateKey] = numValue;
+            }
+            saveData();
+            calculateAndUpdateTotals();
+            renderDays(); // Re-render para atualizar os dots de status visualmente se necessário
+            
+            // Focar de volta no elemento pode ser complicado ao re-renderizar tudo, 
+            // mas como é uma lista simples, o onchange funciona bem.
+            // Para melhor UX, em uma app real, atualizaríamos apenas o DOM específico.
+        }
+
+        function saveData() {
+            localStorage.setItem(CONFIG.storageKey, JSON.stringify(appState));
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem(CONFIG.storageKey);
+            if (saved) {
+                appState = JSON.parse(saved);
+            }
+        }
+
+        function setupUI() {
+            const badge = document.getElementById('modeBadge');
+            const adminLink = document.getElementById('adminLinkContainer');
+
+            if (isAdmin) {
+                badge.innerText = 'Modo Criador (Admin)';
+                badge.className = 'badge badge-admin';
+                adminLink.style.display = 'block';
+            } else {
+                badge.innerText = 'Modo Chefe (Visualização)';
+                badge.className = 'badge badge-view';
+            }
+        }
+
+        function formatCurrency(value) {
+            return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        function copyBossLink() {
+            // Pega a URL atual, remove parâmetros e copia
+            const url = window.location.href.split('?')[0];
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Link para o Chefe copiado! Envie este link sem o "?admin=true".');
+            });
+        }
+
+        // Iniciar
+        init();
+
+    </script>
+</body>
+</html>
